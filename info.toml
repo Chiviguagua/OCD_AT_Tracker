@@ -1,7 +1,5 @@
-name = "ocdATTracker"
+[meta]
+name = "OCD AT Tracker"
 author = "Chiviguagua"
+category = "Race"
 version = "1.0"
-category = "Trackmania"
-script = "Main.as"
-description = "Track Author Time progress for the OCD campaign in Trackmania."
-game_version = "*"

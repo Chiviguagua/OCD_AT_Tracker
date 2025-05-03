@@ -17,20 +17,47 @@ void RenderMenu() {
     }
 }
 
-void Render() {
+void RenderInterface() {
     if (!loaded) {
         LoadPBs();
         loaded = true;
     }
 
-    if (!showMainWindow) return;
+    completedMaps = 0;
 
-    bool visible = showMainWindow;
-    if (UI::Begin("OCD AT Tracker", visible, UI::WindowFlags::AlwaysAutoResize)) {
+    // Render progress bar
+    if (showProgressBarWindow) {
+        float pct = float(completedMaps) / float(maps.Length);
+        string label = completedMaps + " / " + maps.Length;
+
+        vec4 barColor = completedMaps >= 20
+            ? vec4(1.0f, 0.84f, 0.0f, 1.0f)   // Gold
+            : vec4(0.94f, 0.38f, 0.0f, 1.0f); // #F06000
+
+        UI::PushStyleColor(UI::Col::WindowBg, vec4(0, 0, 0, 0));
+        UI::PushStyleColor(UI::Col::PlotHistogram, barColor);
+
+        bool visible = true;
+        if (UI::Begin("OCD AT Progress Bar", visible,
+            UI::WindowFlags::NoTitleBar |
+            UI::WindowFlags::NoScrollbar |
+            UI::WindowFlags::NoCollapse |
+            UI::WindowFlags::AlwaysAutoResize
+        )) {
+            UI::ProgressBar(pct, vec2(300, 30), label);
+            UI::End();
+        }
+
+        UI::PopStyleColor(2);
+    }
+
+    // Render tracker window
+    if (showMainWindow) {
+        UI::SetNextWindowPos(100, 100, UI::Cond::Once);
+        UI::Begin("OCD AT Tracker", UI::WindowFlags::AlwaysAutoResize);
+
         UI::Text("OCD Campaign AT Progress");
         UI::Separator();
-
-        completedMaps = 0;
 
         if (UI::BeginTable("atTable", 4, UI::TableFlags::Borders | UI::TableFlags::RowBg)) {
             UI::TableSetupColumn("Map", UI::TableColumnFlags::WidthFixed, 60);
@@ -39,14 +66,12 @@ void Render() {
             UI::TableSetupColumn("Delta", UI::TableColumnFlags::WidthFixed, 90);
             UI::TableHeadersRow();
 
+            UI::PushStyleVar(UI::StyleVar::FramePadding, vec2(4, 8));
             for (uint i = 0; i < maps.Length; i++) {
                 auto m = maps[i];
                 uint pb = GetPB(m.uid);
 
-                UI::PushStyleVar(UI::StyleVar::FramePadding, vec2(4, 8));
                 UI::TableNextRow();
-                UI::PopStyleVar();
-
                 UI::TableNextColumn(); UI::Text("Map " + Text::Format("%02d", i + 1));
                 UI::TableNextColumn(); UI::Text(Time::Format(m.at));
 
@@ -79,44 +104,15 @@ void Render() {
                     UI::TextDisabled("—");
                 }
             }
+            UI::PopStyleVar();
             UI::EndTable();
         }
+
         UI::End();
     }
-    showMainWindow = visible;
 }
 
-void RenderInterface() {
-    if (!loaded || !showProgressBarWindow) return;
-
-    float pct = float(completedMaps) / float(maps.Length);
-    string label = completedMaps + " / " + maps.Length;
-
-    // Set color: gold if >=20 maps, else orange (#F06000)
-    vec4 barColor = completedMaps >= 20
-        ? vec4(1.0f, 0.84f, 0.0f, 1.0f)    // Gold
-        : vec4(0.94f, 0.38f, 0.0f, 1.0f);  // #F06000
-
-    UI::PushStyleColor(UI::Col::WindowBg, vec4(0, 0, 0, 0));       // Transparent background
-    UI::PushStyleColor(UI::Col::PlotHistogram, barColor);         // Progress bar fill
-
-    bool visible = showProgressBarWindow;
-    if (UI::Begin("OCD AT Progress Bar", visible,
-        UI::WindowFlags::NoTitleBar |
-        UI::WindowFlags::NoScrollbar |
-        UI::WindowFlags::NoCollapse |
-        UI::WindowFlags::AlwaysAutoResize
-    )) {
-        UI::ProgressBar(pct, vec2(300, 30), label);
-        UI::End();
-    }
-
-    showProgressBarWindow = visible;
-    UI::PopStyleColor(2); // Pop both WindowBg and PlotHistogram
-}
-
-
-
+// -------------------- Data + PB logic stays unchanged --------------------
 
 class MapData {
     string name;
@@ -160,7 +156,6 @@ array<MapData@> maps = {
 
 void SavePBs() {
     IO::File file("PBs.json", IO::FileMode::Write);
-    
     file.WriteLine("{");
     uint count = 0;
     for (uint i = 0; i < maps.Length; i++) {
@@ -174,13 +169,9 @@ void SavePBs() {
     file.WriteLine("}");
 }
 
-
-
 void LoadPBs() {
     if (!IO::FileExists("PBs.json")) return;
-
     IO::File file("PBs.json", IO::FileMode::Read);
-
     while (!file.EOF()) {
         string line = file.ReadLine().Trim();
         if (line.StartsWith("\"")) {
@@ -194,10 +185,6 @@ void LoadPBs() {
         }
     }
 }
-
-
-
-
 
 uint GetPB(const string &in uid) {
     auto app = cast<CTrackMania@>(GetApp());
@@ -214,7 +201,6 @@ uint GetPB(const string &in uid) {
     if (script is null || script.Score is null) return GetSavedPB(uid);
 
     uint livePB = script.Score.Points;
-
     uint stored;
     if (!savedPBs.Get(uid, stored) || stored > livePB) {
         savedPBs.Set(uid, livePB);
@@ -226,15 +212,13 @@ uint GetPB(const string &in uid) {
 
 uint GetSavedPB(const string &in uid) {
     uint time;
-    if (savedPBs.Get(uid, time)) {
-        return time;
-    }
+    if (savedPBs.Get(uid, time)) return time;
     return 0;
 }
 
 void Main() {
     while (true) {
-        yield(); // pause one frame
+        yield();
 
         auto app = cast<CTrackMania@>(GetApp());
         if (app is null || app.RootMap is null) continue;

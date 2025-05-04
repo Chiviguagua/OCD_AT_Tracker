@@ -155,7 +155,7 @@ array<MapData@> maps = {
 };
 
 void SavePBs() {
-    IO::File file("PBs.json", IO::FileMode::Write);
+    IO::File file(IO::FromStorageFolder("PBs.json"), IO::FileMode::Write); //fixed
     file.WriteLine("{");
     uint count = 0;
     for (uint i = 0; i < maps.Length; i++) {
@@ -170,8 +170,9 @@ void SavePBs() {
 }
 
 void LoadPBs() {
-    if (!IO::FileExists("PBs.json")) return;
-    IO::File file("PBs.json", IO::FileMode::Read);
+    const string path = IO::FromStorageFolder("PBs.json");  //fixed
+    if (!IO::FileExists(path)) return;
+    IO::File file(path, IO::FileMode::Read);
     while (!file.EOF()) {
         string line = file.ReadLine().Trim();
         if (line.StartsWith("\"")) {
